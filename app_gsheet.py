@@ -58,11 +58,11 @@ def load_employees():
             return pd.DataFrame(data)
         else:
             # Tạo dữ liệu mẫu nếu sheet trống
-            df_empty = pd.DataFrame(columns=['Mã NV', 'Tên NV', 'Bộ phận', 'Chức vụ'])
+            df_empty = pd.DataFrame(columns=['Tên NV', 'Tiền công/ngày'])
             return df_empty
     except Exception as e:
         st.error(f"Lỗi đọc danh sách nhân viên: {e}")
-        return pd.DataFrame(columns=['Mã NV', 'Tên NV', 'Bộ phận', 'Chức vụ'])
+        return pd.DataFrame(columns=['Tên NV', 'Tiền công/ngày'])
 
 # Đọc dữ liệu chấm công từ một sheet cụ thể
 @st.cache_data(ttl=30)
@@ -80,10 +80,10 @@ def load_attendance_by_month(month_year):
         except gspread.exceptions.WorksheetNotFound:
             pass
         
-        return pd.DataFrame(columns=['Mã NV', 'Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'Ghi chú'])
+        return pd.DataFrame(columns=['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'Ghi chú'])
     except Exception as e:
         st.error(f"Lỗi đọc dữ liệu chấm công: {e}")
-        return pd.DataFrame(columns=['Mã NV', 'Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'Ghi chú'])
+        return pd.DataFrame(columns=['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'Ghi chú'])
 
 # Đọc tất cả dữ liệu chấm công
 @st.cache_data(ttl=60)
@@ -103,13 +103,13 @@ def load_attendance():
         
         if all_data:
             return pd.DataFrame(all_data)
-        return pd.DataFrame(columns=['Mã NV', 'Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'Ghi chú'])
+        return pd.DataFrame(columns=['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'Ghi chú'])
     except Exception as e:
         st.error(f"Lỗi đọc tất cả dữ liệu: {e}")
-        return pd.DataFrame(columns=['Mã NV', 'Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'Ghi chú'])
+        return pd.DataFrame(columns=['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'Ghi chú'])
 
 # Lưu bản ghi chấm công
-def save_attendance(employee_id, employee_name, date_str, time_in, time_out, total_hours, note):
+def save_attendance(employee_name, date_str, time_in, time_out, total_hours, note):
     """Lưu dữ liệu chấm công vào Google Sheets"""
     try:
         # Xác định tên sheet theo tháng
@@ -123,12 +123,12 @@ def save_attendance(employee_id, employee_name, date_str, time_in, time_out, tot
             worksheet = spreadsheet.worksheet(sheet_name)
         except gspread.exceptions.WorksheetNotFound:
             # Tạo sheet mới
-            worksheet = spreadsheet.add_worksheet(title=sheet_name, rows="1000", cols="7")
+            worksheet = spreadsheet.add_worksheet(title=sheet_name, rows="1000", cols="6")
             # Thêm header
-            worksheet.append_row(['Mã NV', 'Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'Ghi chú'])
+            worksheet.append_row(['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'Ghi chú'])
         
         # Thêm dữ liệu
-        worksheet.append_row([employee_id, employee_name, date_str, time_in, time_out, total_hours, note])
+        worksheet.append_row([employee_name, date_str, time_in, time_out, total_hours, note])
         
         # Clear cache để refresh dữ liệu
         load_attendance_by_month.clear()
@@ -160,7 +160,7 @@ def delete_attendance_record(sheet_name, row_index):
         return False
 
 # Cập nhật bản ghi chấm công
-def update_attendance_record(sheet_name, row_index, employee_id, employee_name, date_str, time_in, time_out, total_hours, note):
+def update_attendance_record(sheet_name, row_index, employee_name, date_str, time_in, time_out, total_hours, note):
     """Cập nhật một bản ghi chấm công"""
     try:
         spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
@@ -168,8 +168,8 @@ def update_attendance_record(sheet_name, row_index, employee_id, employee_name, 
         
         # row_index + 2 vì row 1 là header
         actual_row = row_index + 2
-        worksheet.update(f'A{actual_row}:G{actual_row}', 
-                        [[employee_id, employee_name, date_str, time_in, time_out, total_hours, note]])
+        worksheet.update(f'A{actual_row}:F{actual_row}', 
+                        [[employee_name, date_str, time_in, time_out, total_hours, note]])
         
         # Clear cache
         load_attendance_by_month.clear()
@@ -181,16 +181,16 @@ def update_attendance_record(sheet_name, row_index, employee_id, employee_name, 
         return False
 
 # Thêm nhân viên mới
-def add_employee(emp_id, emp_name, department, position):
+def add_employee(emp_name, daily_wage):
     """Thêm nhân viên mới vào Google Sheets"""
     try:
         sheet = gc.open_by_key(EMPLOYEES_SHEET_ID).sheet1
         
         # Kiểm tra nếu sheet trống, thêm header
         if sheet.row_count == 0 or len(sheet.get_all_values()) == 0:
-            sheet.append_row(['Mã NV', 'Tên NV', 'Bộ phận', 'Chức vụ'])
+            sheet.append_row(['Tên NV', 'Tiền công/ngày'])
         
-        sheet.append_row([emp_id, emp_name, department, position])
+        sheet.append_row([emp_name, daily_wage])
         
         # Clear cache
         load_employees.clear()
@@ -244,13 +244,12 @@ with tab1:
         
         employees_df = load_employees()
         if len(employees_df) > 0:
-            employee_options = [f"{row['Mã NV']} - {row['Tên NV']}" for _, row in employees_df.iterrows()]
+            employee_options = [row['Tên NV'] for _, row in employees_df.iterrows()]
             selected_employee = st.selectbox("Chọn nhân viên", employee_options)
             
-            emp_id = selected_employee.split(' - ')[0]
-            emp_info = employees_df[employees_df['Mã NV'] == emp_id].iloc[0]
-            
-            st.info(f"**Bộ phận:** {emp_info['Bộ phận']} | **Chức vụ:** {emp_info['Chức vụ']}")
+            # Lấy thông tin tiền công
+            emp_info = employees_df[employees_df['Tên NV'] == selected_employee].iloc[0]
+            st.info(f"💰 **Tiền công/ngày:** {emp_info['Tiền công/ngày']:,} VNĐ")
             
             attendance_date = st.date_input("Ngày", value=date.today())
             time_in = st.time_input("Giờ vào", value=time(8, 0))
@@ -266,15 +265,14 @@ with tab1:
             if st.button("✅ Lưu chấm công", type="primary", use_container_width=True):
                 with st.spinner("Đang lưu vào Google Sheets..."):
                     if save_attendance(
-                        emp_id,
-                        emp_info['Tên NV'],
+                        selected_employee,
                         attendance_date.strftime("%Y-%m-%d"),
                         time_in_str,
                         time_out_str,
                         estimated_hours,
                         note
                     ):
-                        st.success(f"✅ Đã lưu chấm công cho {emp_info['Tên NV']} - Tổng: {estimated_hours} giờ")
+                        st.success(f"✅ Đã lưu chấm công cho {selected_employee} - Tổng: {estimated_hours} giờ")
                         st.rerun()
                     else:
                         st.error("❌ Có lỗi khi lưu dữ liệu")
@@ -371,9 +369,8 @@ with tab2:
                     
                     employees_df = load_employees()
                     if len(employees_df) > 0:
-                        emp_list = [f"{row['Mã NV']} - {row['Tên NV']}" for _, row in employees_df.iterrows()]
-                        current_emp_str = f"{current_record['Mã NV']} - {current_record['Tên NV']}"
-                        current_emp_idx = emp_list.index(current_emp_str) if current_emp_str in emp_list else 0
+                        emp_list = [row['Tên NV'] for _, row in employees_df.iterrows()]
+                        current_emp_idx = emp_list.index(current_record['Tên NV']) if current_record['Tên NV'] in emp_list else 0
                         
                         new_employee = st.selectbox(
                             "Nhân viên", 
@@ -381,9 +378,6 @@ with tab2:
                             index=current_emp_idx,
                             key="edit_emp"
                         )
-                        
-                        new_emp_id = new_employee.split(' - ')[0]
-                        new_emp_name = employees_df[employees_df['Mã NV'] == new_emp_id].iloc[0]['Tên NV']
                         
                         current_date = datetime.strptime(str(current_record['Ngày']), "%Y-%m-%d").date()
                         new_date = st.date_input("Ngày", value=current_date, key="edit_date")
@@ -407,8 +401,7 @@ with tab2:
                                 if update_attendance_record(
                                     selected_month,
                                     record_to_edit - 1,
-                                    new_emp_id,
-                                    new_emp_name,
+                                    new_employee,
                                     new_date.strftime("%Y-%m-%d"),
                                     new_time_in.strftime("%H:%M"),
                                     new_time_out.strftime("%H:%M"),
@@ -430,23 +423,21 @@ with tab3:
     
     with col1:
         st.subheader("Thêm nhân viên mới")
-        new_emp_id = st.text_input("Mã nhân viên")
         new_emp_name = st.text_input("Tên nhân viên")
-        new_department = st.text_input("Bộ phận")
-        new_position = st.text_input("Chức vụ")
+        new_daily_wage = st.number_input("Tiền công/ngày (VNĐ)", min_value=0, value=300000, step=10000)
         
         if st.button("➕ Thêm nhân viên", type="primary", use_container_width=True):
-            if new_emp_id and new_emp_name and new_department and new_position:
+            if new_emp_name:
                 employees_df = load_employees()
-                if new_emp_id in employees_df['Mã NV'].values:
-                    st.error("❌ Mã nhân viên đã tồn tại!")
+                if new_emp_name in employees_df['Tên NV'].values:
+                    st.error("❌ Tên nhân viên đã tồn tại!")
                 else:
                     with st.spinner("Đang thêm nhân viên..."):
-                        if add_employee(new_emp_id, new_emp_name, new_department, new_position):
-                            st.success(f"✅ Đã thêm nhân viên {new_emp_name}")
+                        if add_employee(new_emp_name, new_daily_wage):
+                            st.success(f"✅ Đã thêm nhân viên {new_emp_name} - {new_daily_wage:,} VNĐ/ngày")
                             st.rerun()
             else:
-                st.warning("⚠️ Vui lòng điền đầy đủ thông tin")
+                st.warning("⚠️ Vui lòng nhập tên nhân viên")
     
     with col2:
         st.subheader("Danh sách nhân viên")
@@ -535,7 +526,7 @@ with tab5:
         with col1:
             st.metric("Tổng số bản ghi", len(attendance_df))
         with col2:
-            st.metric("Số nhân viên", attendance_df['Mã NV'].nunique())
+            st.metric("Số nhân viên", attendance_df['Tên NV'].nunique())
         with col3:
             st.metric("Tổng giờ làm", f"{attendance_df['Tổng giờ'].sum():.2f} h")
         with col4:
@@ -595,27 +586,27 @@ with tab6:
             st.error(f"Lỗi: {e}")
     
     st.markdown("---")
-    st.subheader("💾 Ưu điểm của Google Sheets")
+    # st.subheader("💾 Ưu điểm của Google Sheets")
     
-    col1, col2 = st.columns(2)
+    # col1, col2 = st.columns(2)
     
-    with col1:
-        st.success("""
-        **✅ Lưu trữ an toàn:**
-        - Dữ liệu trên Google Cloud
-        - Không bị mất khi app restart
-        - Tự động backup bởi Google
-        - Truy cập từ bất kỳ đâu
-        """)
+    # with col1:
+    #     st.success("""
+    #     **✅ Lưu trữ an toàn:**
+    #     - Dữ liệu trên Google Cloud
+    #     - Không bị mất khi app restart
+    #     - Tự động backup bởi Google
+    #     - Truy cập từ bất kỳ đâu
+    #     """)
     
-    with col2:
-        st.info("""
-        **📊 Dễ dàng quản lý:**
-        - Xem trực tiếp trên Google Sheets
-        - Sửa trực tiếp nếu cần
-        - Chia sẻ với nhiều người
-        - Export sang Excel, CSV, PDF
-        """)
+    # with col2:
+    #     st.info("""
+    #     **📊 Dễ dàng quản lý:**
+    #     - Xem trực tiếp trên Google Sheets
+    #     - Sửa trực tiếp nếu cần
+    #     - Chia sẻ với nhiều người
+    #     - Export sang Excel, CSV, PDF
+    #     """)
 
 # Footer
 st.markdown("---")
