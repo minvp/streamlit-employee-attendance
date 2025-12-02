@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# Dữ liệu - KHÔNG upload lên GitHub
+attendance_data.xlsx
+attendance_data.csv
+employees.csv
+*.xlsx
+*.csv
+
+# Các file xuất báo cáo
+bao_cao_*.xlsx
+tong_hop_*.xlsx
+danh_sach_*.xlsx
+
+# Streamlit secrets và Google credentials
+.streamlit/
+secrets.toml
+*.json
+!package*.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
