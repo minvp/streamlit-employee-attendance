@@ -47,23 +47,14 @@ def get_sheet_ids():
         st.stop()
         return None
 
-# Khởi tạo client và IDs
-gc = get_gspread_client()
-sheet_ids = get_sheet_ids()
-
-if gc is None or sheet_ids is None:
-    st.error("❌ Không thể kết nối Google Sheets. Vui lòng kiểm tra cấu hình.")
-    st.stop()
-
-ATTENDANCE_SHEET_ID = sheet_ids['attendance']
-EMPLOYEES_SHEET_ID = sheet_ids['employees']
-
 # Đọc danh sách nhân viên từ Google Sheets
 @st.cache_data(ttl=60)
 def load_employees():
     """Đọc danh sách nhân viên từ Google Sheets"""
     try:
-        sheet = gc.open_by_key(EMPLOYEES_SHEET_ID).sheet1
+        gc = get_gspread_client()
+        sheet_ids = get_sheet_ids()
+        sheet = gc.open_by_key(sheet_ids['employees']).sheet1
         data = sheet.get_all_records()
         if data:
             return pd.DataFrame(data)
@@ -80,7 +71,9 @@ def load_employees():
 def load_attendance_by_month(month_year):
     """Đọc dữ liệu từ sheet theo tháng (format: YYYY-MM)"""
     try:
-        spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
+        gc = get_gspread_client()
+        sheet_ids = get_sheet_ids()
+        spreadsheet = gc.open_by_key(sheet_ids['attendance'])
         
         # Kiểm tra sheet có tồn tại không
         try:
@@ -101,7 +94,9 @@ def load_attendance_by_month(month_year):
 def load_attendance():
     """Đọc dữ liệu từ tất cả các sheet"""
     try:
-        spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
+        gc = get_gspread_client()
+        sheet_ids = get_sheet_ids()
+        spreadsheet = gc.open_by_key(sheet_ids['attendance'])
         worksheets = spreadsheet.worksheets()
         
         all_data = []
@@ -123,11 +118,13 @@ def load_attendance():
 def save_attendance(employee_name, date_str, time_in, time_out, total_hours, note):
     """Lưu dữ liệu chấm công vào Google Sheets"""
     try:
+        gc = get_gspread_client()
+        sheet_ids = get_sheet_ids()
         # Xác định tên sheet theo tháng
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         sheet_name = date_obj.strftime("%Y-%m")
         
-        spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
+        spreadsheet = gc.open_by_key(sheet_ids['attendance'])
         
         # Tạo hoặc lấy worksheet
         try:
@@ -154,7 +151,9 @@ def save_attendance(employee_name, date_str, time_in, time_out, total_hours, not
 def delete_attendance_record(sheet_name, row_index):
     """Xóa một bản ghi chấm công (row_index là STT hiển thị, bắt đầu từ 1)"""
     try:
-        spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
+        gc = get_gspread_client()
+        sheet_ids = get_sheet_ids()
+        spreadsheet = gc.open_by_key(sheet_ids['attendance'])
         worksheet = spreadsheet.worksheet(sheet_name)
         
         # row_index + 1 vì row 1 là header, +1 nữa vì index bắt đầu từ 1
@@ -174,7 +173,9 @@ def delete_attendance_record(sheet_name, row_index):
 def update_attendance_record(sheet_name, row_index, employee_name, date_str, time_in, time_out, total_hours, note):
     """Cập nhật một bản ghi chấm công"""
     try:
-        spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
+        gc = get_gspread_client()
+        sheet_ids = get_sheet_ids()
+        spreadsheet = gc.open_by_key(sheet_ids['attendance'])
         worksheet = spreadsheet.worksheet(sheet_name)
         
         # row_index + 2 vì row 1 là header
@@ -195,7 +196,9 @@ def update_attendance_record(sheet_name, row_index, employee_name, date_str, tim
 def add_employee(emp_name, daily_wage):
     """Thêm nhân viên mới vào Google Sheets"""
     try:
-        sheet = gc.open_by_key(EMPLOYEES_SHEET_ID).sheet1
+        gc = get_gspread_client()
+        sheet_ids = get_sheet_ids()
+        sheet = gc.open_by_key(sheet_ids['employees']).sheet1
         
         # Kiểm tra nếu sheet trống, thêm header
         if sheet.row_count == 0 or len(sheet.get_all_values()) == 0:
@@ -228,7 +231,9 @@ def calculate_hours(time_in, time_out):
 def get_available_months():
     """Lấy danh sách các tháng có sẵn"""
     try:
-        spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
+        gc = get_gspread_client()
+        sheet_ids = get_sheet_ids()
+        spreadsheet = gc.open_by_key(sheet_ids['attendance'])
         worksheets = spreadsheet.worksheets()
         months = [ws.title for ws in worksheets if ws.title not in ['Sheet1', 'Template']]
         return months
@@ -565,7 +570,9 @@ with tab6:
         st.info("Dữ liệu được lưu trữ trên Google Sheets")
         
         try:
-            spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
+            gc = get_gspread_client()
+            sheet_ids = get_sheet_ids()
+            spreadsheet = gc.open_by_key(sheet_ids['attendance'])
             st.success(f"✅ Kết nối thành công: **{spreadsheet.title}**")
             
             worksheets = spreadsheet.worksheets()
@@ -576,7 +583,7 @@ with tab6:
             #         st.write(f"- 📅 **{ws.title}** ({ws.row_count - 1} bản ghi)")
             
             st.markdown("---")
-            st.markdown(f"🔗 [Mở Google Sheets](https://docs.google.com/spreadsheets/d/{ATTENDANCE_SHEET_ID})")
+            st.markdown(f"🔗 [Mở Google Sheets](https://docs.google.com/spreadsheets/d/{sheet_ids['attendance']})")
         except Exception as e:
             st.error(f"Lỗi: {e}")
     
@@ -585,14 +592,16 @@ with tab6:
         st.info("Dữ liệu được lưu trữ trên Google Sheets")
         
         try:
-            spreadsheet = gc.open_by_key(EMPLOYEES_SHEET_ID)
+            gc = get_gspread_client()
+            sheet_ids = get_sheet_ids()
+            spreadsheet = gc.open_by_key(sheet_ids['employees'])
             st.success(f"✅ Kết nối thành công: **{spreadsheet.title}**")
             
             emp_df = load_employees()
             # st.write(f"**Tổng số nhân viên:** {len(emp_df)}")
             
             st.markdown("---")
-            st.markdown(f"🔗 [Mở Google Sheets](https://docs.google.com/spreadsheets/d/{EMPLOYEES_SHEET_ID})")
+            st.markdown(f"🔗 [Mở Google Sheets](https://docs.google.com/spreadsheets/d/{sheet_ids['employees']})")
         except Exception as e:
             st.error(f"Lỗi: {e}")
     
