@@ -36,9 +36,6 @@ def get_gspread_client():
 try:
     ATTENDANCE_SHEET_ID = st.secrets["attendance_spreadsheet_id"]
     EMPLOYEES_SHEET_ID = st.secrets["employees_spreadsheet_id"]
-    # Debug - kiểm tra giá trị
-    st.write("DEBUG - Attendance ID:", ATTENDANCE_SHEET_ID)
-    st.write("DEBUG - Employees ID:", EMPLOYEES_SHEET_ID)
 except Exception as e:
     st.error("⚠️ Chưa cấu hình spreadsheet IDs trong secrets.toml")
     st.error(f"Chi tiết lỗi: {e}")
