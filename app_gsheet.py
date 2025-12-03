@@ -41,9 +41,13 @@ def get_sheet_ids():
             'attendance': st.secrets["attendance_spreadsheet_id"],
             'employees': st.secrets["employees_spreadsheet_id"]
         }
+    except KeyError as e:
+        st.error(f"⚠️ Thiếu cấu hình trong Streamlit Cloud Secrets: {e}")
+        st.info("Vui lòng thêm 'attendance_spreadsheet_id' và 'employees_spreadsheet_id' vào Cloud Secrets")
+        st.stop()
+        return None
     except Exception as e:
-        st.error("⚠️ Chưa cấu hình spreadsheet IDs trong secrets.toml")
-        st.error(f"Chi tiết lỗi: {e}")
+        st.error(f"⚠️ Lỗi đọc spreadsheet IDs: {e}")
         st.stop()
         return None
 
@@ -242,8 +246,24 @@ def get_available_months():
         return []
 
 # Header
-st.title("⏰ Hệ thống chấm công nhân viên")
-st.success("✅ Đã kết nối Google Sheets - Dữ liệu được lưu trữ vĩnh viễn")
+try:
+    # Kiểm tra kết nối ngay từ đầu
+    test_client = get_gspread_client()
+    test_ids = get_sheet_ids()
+    
+    if test_client and test_ids:
+        st.title("⏰ Hệ thống chấm công nhân viên")
+        st.success("✅ Đã kết nối Google Sheets - Dữ liệu được lưu trữ vĩnh viễn")
+    else:
+        st.title("⏰ Hệ thống chấm công nhân viên")
+        st.error("❌ Không thể kết nối Google Sheets")
+        st.stop()
+except Exception as e:
+    st.title("⏰ Hệ thống chấm công nhân viên")
+    st.error(f"❌ Lỗi khởi tạo: {e}")
+    st.info("Vui lòng kiểm tra cấu hình Secrets trên Streamlit Cloud")
+    st.stop()
+
 st.markdown("---")
 
 # Tạo tabs
