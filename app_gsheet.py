@@ -558,11 +558,11 @@ with tab6:
             st.success(f"✅ Kết nối thành công: **{spreadsheet.title}**")
             
             worksheets = spreadsheet.worksheets()
-            st.write(f"**Số sheet:** {len(worksheets)}")
-            st.write("**Danh sách các tháng:**")
-            for ws in worksheets:
-                if ws.title not in ['Sheet1', 'Template']:
-                    st.write(f"- 📅 **{ws.title}** ({ws.row_count - 1} bản ghi)")
+            # st.write(f"**Số sheet:** {len(worksheets)}")
+            # st.write("**Danh sách các tháng:**")
+            # for ws in worksheets:
+            #     if ws.title not in ['Sheet1', 'Template']:
+            #         st.write(f"- 📅 **{ws.title}** ({ws.row_count - 1} bản ghi)")
             
             st.markdown("---")
             st.markdown(f"🔗 [Mở Google Sheets](https://docs.google.com/spreadsheets/d/{ATTENDANCE_SHEET_ID})")
@@ -578,7 +578,7 @@ with tab6:
             st.success(f"✅ Kết nối thành công: **{spreadsheet.title}**")
             
             emp_df = load_employees()
-            st.write(f"**Tổng số nhân viên:** {len(emp_df)}")
+            # st.write(f"**Tổng số nhân viên:** {len(emp_df)}")
             
             st.markdown("---")
             st.markdown(f"🔗 [Mở Google Sheets](https://docs.google.com/spreadsheets/d/{EMPLOYEES_SHEET_ID})")
