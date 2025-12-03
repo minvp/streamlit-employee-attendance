@@ -32,33 +32,32 @@ def get_gspread_client():
         st.info("Vui lòng kiểm tra cấu hình secrets trong .streamlit/secrets.toml")
         return None
 
-# Hàm lấy Sheet IDs
-@st.cache_data
-def get_sheet_ids():
-    """Lấy Spreadsheet IDs từ secrets"""
-    try:
-        return {
-            'attendance': st.secrets["attendance_spreadsheet_id"],
-            'employees': st.secrets["employees_spreadsheet_id"]
-        }
-    except KeyError as e:
-        st.error(f"⚠️ Thiếu cấu hình trong Streamlit Cloud Secrets: {e}")
-        st.info("Vui lòng thêm 'attendance_spreadsheet_id' và 'employees_spreadsheet_id' vào Cloud Secrets")
-        st.stop()
-        return None
-    except Exception as e:
-        st.error(f"⚠️ Lỗi đọc spreadsheet IDs: {e}")
-        st.stop()
-        return None
+# Lấy Google Sheet IDs từ secrets
+try:
+    ATTENDANCE_SHEET_ID = st.secrets["attendance_spreadsheet_id"]
+    EMPLOYEES_SHEET_ID = st.secrets["employees_spreadsheet_id"]
+    # Debug - kiểm tra giá trị
+    st.write("DEBUG - Attendance ID:", ATTENDANCE_SHEET_ID)
+    st.write("DEBUG - Employees ID:", EMPLOYEES_SHEET_ID)
+except Exception as e:
+    st.error("⚠️ Chưa cấu hình spreadsheet IDs trong secrets.toml")
+    st.error(f"Chi tiết lỗi: {e}")
+    st.write("Secrets hiện có:", list(st.secrets.keys()))
+    st.stop()
+
+# Khởi tạo client
+gc = get_gspread_client()
+
+if gc is None:
+    st.error("❌ Không thể kết nối Google Sheets. Vui lòng kiểm tra cấu hình.")
+    st.stop()
 
 # Đọc danh sách nhân viên từ Google Sheets
 @st.cache_data(ttl=60)
 def load_employees():
     """Đọc danh sách nhân viên từ Google Sheets"""
     try:
-        gc = get_gspread_client()
-        sheet_ids = get_sheet_ids()
-        sheet = gc.open_by_key(sheet_ids['employees']).sheet1
+        sheet = gc.open_by_key(EMPLOYEES_SHEET_ID).sheet1
         data = sheet.get_all_records()
         if data:
             return pd.DataFrame(data)
@@ -75,9 +74,7 @@ def load_employees():
 def load_attendance_by_month(month_year):
     """Đọc dữ liệu từ sheet theo tháng (format: YYYY-MM)"""
     try:
-        gc = get_gspread_client()
-        sheet_ids = get_sheet_ids()
-        spreadsheet = gc.open_by_key(sheet_ids['attendance'])
+        spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
         
         # Kiểm tra sheet có tồn tại không
         try:
@@ -98,9 +95,7 @@ def load_attendance_by_month(month_year):
 def load_attendance():
     """Đọc dữ liệu từ tất cả các sheet"""
     try:
-        gc = get_gspread_client()
-        sheet_ids = get_sheet_ids()
-        spreadsheet = gc.open_by_key(sheet_ids['attendance'])
+        spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
         worksheets = spreadsheet.worksheets()
         
         all_data = []
@@ -122,13 +117,11 @@ def load_attendance():
 def save_attendance(employee_name, date_str, time_in, time_out, total_hours, note):
     """Lưu dữ liệu chấm công vào Google Sheets"""
     try:
-        gc = get_gspread_client()
-        sheet_ids = get_sheet_ids()
         # Xác định tên sheet theo tháng
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         sheet_name = date_obj.strftime("%Y-%m")
         
-        spreadsheet = gc.open_by_key(sheet_ids['attendance'])
+        spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
         
         # Tạo hoặc lấy worksheet
         try:
@@ -155,9 +148,7 @@ def save_attendance(employee_name, date_str, time_in, time_out, total_hours, not
 def delete_attendance_record(sheet_name, row_index):
     """Xóa một bản ghi chấm công (row_index là STT hiển thị, bắt đầu từ 1)"""
     try:
-        gc = get_gspread_client()
-        sheet_ids = get_sheet_ids()
-        spreadsheet = gc.open_by_key(sheet_ids['attendance'])
+        spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
         worksheet = spreadsheet.worksheet(sheet_name)
         
         # row_index + 1 vì row 1 là header, +1 nữa vì index bắt đầu từ 1
@@ -177,9 +168,7 @@ def delete_attendance_record(sheet_name, row_index):
 def update_attendance_record(sheet_name, row_index, employee_name, date_str, time_in, time_out, total_hours, note):
     """Cập nhật một bản ghi chấm công"""
     try:
-        gc = get_gspread_client()
-        sheet_ids = get_sheet_ids()
-        spreadsheet = gc.open_by_key(sheet_ids['attendance'])
+        spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
         worksheet = spreadsheet.worksheet(sheet_name)
         
         # row_index + 2 vì row 1 là header
@@ -200,9 +189,7 @@ def update_attendance_record(sheet_name, row_index, employee_name, date_str, tim
 def add_employee(emp_name, daily_wage):
     """Thêm nhân viên mới vào Google Sheets"""
     try:
-        gc = get_gspread_client()
-        sheet_ids = get_sheet_ids()
-        sheet = gc.open_by_key(sheet_ids['employees']).sheet1
+        sheet = gc.open_by_key(EMPLOYEES_SHEET_ID).sheet1
         
         # Kiểm tra nếu sheet trống, thêm header
         if sheet.row_count == 0 or len(sheet.get_all_values()) == 0:
@@ -235,9 +222,7 @@ def calculate_hours(time_in, time_out):
 def get_available_months():
     """Lấy danh sách các tháng có sẵn"""
     try:
-        gc = get_gspread_client()
-        sheet_ids = get_sheet_ids()
-        spreadsheet = gc.open_by_key(sheet_ids['attendance'])
+        spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
         worksheets = spreadsheet.worksheets()
         months = [ws.title for ws in worksheets if ws.title not in ['Sheet1', 'Template']]
         return months
@@ -246,24 +231,8 @@ def get_available_months():
         return []
 
 # Header
-try:
-    # Kiểm tra kết nối ngay từ đầu
-    test_client = get_gspread_client()
-    test_ids = get_sheet_ids()
-    
-    if test_client and test_ids:
-        st.title("⏰ Hệ thống chấm công nhân viên")
-        st.success("✅ Đã kết nối Google Sheets - Dữ liệu được lưu trữ vĩnh viễn")
-    else:
-        st.title("⏰ Hệ thống chấm công nhân viên")
-        st.error("❌ Không thể kết nối Google Sheets")
-        st.stop()
-except Exception as e:
-    st.title("⏰ Hệ thống chấm công nhân viên")
-    st.error(f"❌ Lỗi khởi tạo: {e}")
-    st.info("Vui lòng kiểm tra cấu hình Secrets trên Streamlit Cloud")
-    st.stop()
-
+st.title("⏰ Hệ thống chấm công nhân viên")
+st.success("✅ Đã kết nối Google Sheets - Dữ liệu được lưu trữ vĩnh viễn")
 st.markdown("---")
 
 # Tạo tabs
@@ -590,20 +559,18 @@ with tab6:
         st.info("Dữ liệu được lưu trữ trên Google Sheets")
         
         try:
-            gc = get_gspread_client()
-            sheet_ids = get_sheet_ids()
-            spreadsheet = gc.open_by_key(sheet_ids['attendance'])
+            spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
             st.success(f"✅ Kết nối thành công: **{spreadsheet.title}**")
             
             worksheets = spreadsheet.worksheets()
-            # st.write(f"**Số sheet:** {len(worksheets)}")
-            # st.write("**Danh sách các tháng:**")
-            # for ws in worksheets:
-            #     if ws.title not in ['Sheet1', 'Template']:
-            #         st.write(f"- 📅 **{ws.title}** ({ws.row_count - 1} bản ghi)")
+            st.write(f"**Số sheet:** {len(worksheets)}")
+            st.write("**Danh sách các tháng:**")
+            for ws in worksheets:
+                if ws.title not in ['Sheet1', 'Template']:
+                    st.write(f"- 📅 **{ws.title}** ({ws.row_count - 1} bản ghi)")
             
             st.markdown("---")
-            st.markdown(f"🔗 [Mở Google Sheets](https://docs.google.com/spreadsheets/d/{sheet_ids['attendance']})")
+            st.markdown(f"🔗 [Mở Google Sheets](https://docs.google.com/spreadsheets/d/{ATTENDANCE_SHEET_ID})")
         except Exception as e:
             st.error(f"Lỗi: {e}")
     
@@ -612,16 +579,14 @@ with tab6:
         st.info("Dữ liệu được lưu trữ trên Google Sheets")
         
         try:
-            gc = get_gspread_client()
-            sheet_ids = get_sheet_ids()
-            spreadsheet = gc.open_by_key(sheet_ids['employees'])
+            spreadsheet = gc.open_by_key(EMPLOYEES_SHEET_ID)
             st.success(f"✅ Kết nối thành công: **{spreadsheet.title}**")
             
             emp_df = load_employees()
-            # st.write(f"**Tổng số nhân viên:** {len(emp_df)}")
+            st.write(f"**Tổng số nhân viên:** {len(emp_df)}")
             
             st.markdown("---")
-            st.markdown(f"🔗 [Mở Google Sheets](https://docs.google.com/spreadsheets/d/{sheet_ids['employees']})")
+            st.markdown(f"🔗 [Mở Google Sheets](https://docs.google.com/spreadsheets/d/{EMPLOYEES_SHEET_ID})")
         except Exception as e:
             st.error(f"Lỗi: {e}")
     
