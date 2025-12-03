@@ -32,20 +32,31 @@ def get_gspread_client():
         st.info("Vui lòng kiểm tra cấu hình secrets trong .streamlit/secrets.toml")
         return None
 
-# Lấy Google Sheet IDs từ secrets
-try:
-    ATTENDANCE_SHEET_ID = st.secrets["attendance_spreadsheet_id"]
-    EMPLOYEES_SHEET_ID = st.secrets["employees_spreadsheet_id"]
-except Exception:
-    st.error("⚠️ Chưa cấu hình spreadsheet IDs trong secrets.toml")
-    st.stop()
+# Hàm lấy Sheet IDs
+@st.cache_data
+def get_sheet_ids():
+    """Lấy Spreadsheet IDs từ secrets"""
+    try:
+        return {
+            'attendance': st.secrets["attendance_spreadsheet_id"],
+            'employees': st.secrets["employees_spreadsheet_id"]
+        }
+    except Exception as e:
+        st.error("⚠️ Chưa cấu hình spreadsheet IDs trong secrets.toml")
+        st.error(f"Chi tiết lỗi: {e}")
+        st.stop()
+        return None
 
-# Khởi tạo client
+# Khởi tạo client và IDs
 gc = get_gspread_client()
+sheet_ids = get_sheet_ids()
 
-if gc is None:
+if gc is None or sheet_ids is None:
     st.error("❌ Không thể kết nối Google Sheets. Vui lòng kiểm tra cấu hình.")
     st.stop()
+
+ATTENDANCE_SHEET_ID = sheet_ids['attendance']
+EMPLOYEES_SHEET_ID = sheet_ids['employees']
 
 # Đọc danh sách nhân viên từ Google Sheets
 @st.cache_data(ttl=60)
@@ -586,27 +597,27 @@ with tab6:
             st.error(f"Lỗi: {e}")
     
     st.markdown("---")
-    # st.subheader("💾 Ưu điểm của Google Sheets")
+    st.subheader("💾 Ưu điểm của Google Sheets")
     
-    # col1, col2 = st.columns(2)
+    col1, col2 = st.columns(2)
     
-    # with col1:
-    #     st.success("""
-    #     **✅ Lưu trữ an toàn:**
-    #     - Dữ liệu trên Google Cloud
-    #     - Không bị mất khi app restart
-    #     - Tự động backup bởi Google
-    #     - Truy cập từ bất kỳ đâu
-    #     """)
+    with col1:
+        st.success("""
+        **✅ Lưu trữ an toàn:**
+        - Dữ liệu trên Google Cloud
+        - Không bị mất khi app restart
+        - Tự động backup bởi Google
+        - Truy cập từ bất kỳ đâu
+        """)
     
-    # with col2:
-    #     st.info("""
-    #     **📊 Dễ dàng quản lý:**
-    #     - Xem trực tiếp trên Google Sheets
-    #     - Sửa trực tiếp nếu cần
-    #     - Chia sẻ với nhiều người
-    #     - Export sang Excel, CSV, PDF
-    #     """)
+    with col2:
+        st.info("""
+        **📊 Dễ dàng quản lý:**
+        - Xem trực tiếp trên Google Sheets
+        - Sửa trực tiếp nếu cần
+        - Chia sẻ với nhiều người
+        - Export sang Excel, CSV, PDF
+        """)
 
 # Footer
 st.markdown("---")
