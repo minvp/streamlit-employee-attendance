@@ -544,8 +544,10 @@ with tab4:
             
             st.subheader("Tổng hợp giờ làm theo nhân viên")
             summary = filtered_df.groupby('Tên NV')['Tổng giờ'].agg(['sum', 'count']).reset_index()
-            summary.columns = ['Tên nhân viên', 'Tổng giờ làm', 'Số ngày công']
+            summary.columns = ['Tên nhân viên', 'Tổng giờ làm', 'Số bản ghi']
             summary['Tổng giờ làm'] = summary['Tổng giờ làm'].round(2)
+            # Tính số ngày công dựa trên giờ làm (8 giờ = 1 ngày công)
+            summary['Số ngày công'] = (summary['Tổng giờ làm'] / 8).round(2)
             st.dataframe(summary, use_container_width=True, hide_index=True)
         else:
             st.info("Không có dữ liệu phù hợp với bộ lọc")
@@ -590,7 +592,9 @@ with tab5:
             'Tổng giờ': 'sum',
             'Ngày': 'count'
         }).round(2)
-        top_employees.columns = ['Tổng giờ làm', 'Số ngày công']
+        top_employees.columns = ['Tổng giờ làm', 'Số bản ghi']
+        # Tính số ngày công dựa trên giờ làm (8 giờ = 1 ngày công)
+        top_employees['Số ngày công'] = (top_employees['Tổng giờ làm'] / 8).round(2)
         top_employees = top_employees.sort_values('Tổng giờ làm', ascending=False).head(5)
         st.dataframe(top_employees, use_container_width=True)
     else:
