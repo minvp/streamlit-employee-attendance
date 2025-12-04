@@ -50,7 +50,7 @@ if gc is None:
     st.stop()
 
 # Đọc danh sách nhân viên từ Google Sheets
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=300)  # Tăng cache lên 5 phút
 def load_employees():
     """Đọc danh sách nhân viên từ Google Sheets"""
     try:
@@ -67,7 +67,7 @@ def load_employees():
         return pd.DataFrame(columns=['Tên NV', 'Tiền công/ngày'])
 
 # Đọc dữ liệu chấm công từ một sheet cụ thể
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=300)  # Tăng cache lên 5 phút
 def load_attendance_by_month(month_year):
     """Đọc dữ liệu từ sheet theo tháng (format: YYYY-MM)"""
     try:
@@ -78,17 +78,21 @@ def load_attendance_by_month(month_year):
             worksheet = spreadsheet.worksheet(month_year)
             data = worksheet.get_all_records()
             if data:
-                return pd.DataFrame(data)
+                df = pd.DataFrame(data)
+                # Đảm bảo có cột OT, nếu không thì thêm = 0
+                if 'OT' not in df.columns:
+                    df['OT'] = 0
+                return df
         except gspread.exceptions.WorksheetNotFound:
             pass
         
-        return pd.DataFrame(columns=['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'Ghi chú'])
+        return pd.DataFrame(columns=['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'OT', 'Ghi chú'])
     except Exception as e:
         st.error(f"Lỗi đọc dữ liệu chấm công: {e}")
-        return pd.DataFrame(columns=['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'Ghi chú'])
+        return pd.DataFrame(columns=['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'OT', 'Ghi chú'])
 
 # Đọc tất cả dữ liệu chấm công
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=300)  # Tăng cache lên 5 phút
 def load_attendance():
     """Đọc dữ liệu từ tất cả các sheet"""
     try:
@@ -104,14 +108,18 @@ def load_attendance():
                     all_data.extend(data)
         
         if all_data:
-            return pd.DataFrame(all_data)
-        return pd.DataFrame(columns=['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'Ghi chú'])
+            df = pd.DataFrame(all_data)
+            # Đảm bảo có cột OT, nếu không thì thêm vào
+            if 'OT' not in df.columns:
+                df['OT'] = 0
+            return df
+        return pd.DataFrame(columns=['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'OT', 'Ghi chú'])
     except Exception as e:
         st.error(f"Lỗi đọc tất cả dữ liệu: {e}")
-        return pd.DataFrame(columns=['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'Ghi chú'])
+        return pd.DataFrame(columns=['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'OT', 'Ghi chú'])
 
 # Lưu bản ghi chấm công
-def save_attendance(employee_name, date_str, time_in, time_out, total_hours, note):
+def save_attendance(employee_name, date_str, time_in, time_out, total_hours, ot_hours, note):
     """Lưu dữ liệu chấm công vào Google Sheets"""
     try:
         # Xác định tên sheet theo tháng
@@ -125,12 +133,12 @@ def save_attendance(employee_name, date_str, time_in, time_out, total_hours, not
             worksheet = spreadsheet.worksheet(sheet_name)
         except gspread.exceptions.WorksheetNotFound:
             # Tạo sheet mới
-            worksheet = spreadsheet.add_worksheet(title=sheet_name, rows="1000", cols="6")
+            worksheet = spreadsheet.add_worksheet(title=sheet_name, rows="1000", cols="7")
             # Thêm header
-            worksheet.append_row(['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'Ghi chú'])
+            worksheet.append_row(['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'OT', 'Ghi chú'])
         
         # Thêm dữ liệu
-        worksheet.append_row([employee_name, date_str, time_in, time_out, total_hours, note])
+        worksheet.append_row([employee_name, date_str, time_in, time_out, total_hours, ot_hours, note])
         
         # Clear cache để refresh dữ liệu
         load_attendance_by_month.clear()
@@ -162,7 +170,7 @@ def delete_attendance_record(sheet_name, row_index):
         return False
 
 # Cập nhật bản ghi chấm công
-def update_attendance_record(sheet_name, row_index, employee_name, date_str, time_in, time_out, total_hours, note):
+def update_attendance_record(sheet_name, row_index, employee_name, date_str, time_in, time_out, total_hours, ot_hours, note):
     """Cập nhật một bản ghi chấm công"""
     try:
         spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
@@ -170,8 +178,8 @@ def update_attendance_record(sheet_name, row_index, employee_name, date_str, tim
         
         # row_index + 2 vì row 1 là header
         actual_row = row_index + 2
-        worksheet.update(f'A{actual_row}:F{actual_row}', 
-                        [[employee_name, date_str, time_in, time_out, total_hours, note]])
+        worksheet.update(f'A{actual_row}:G{actual_row}', 
+                        [[employee_name, date_str, time_in, time_out, total_hours, ot_hours, note]])
         
         # Clear cache
         load_attendance_by_month.clear()
@@ -232,8 +240,71 @@ def calculate_hours(time_in, time_out):
         return round(hours, 2)
     return 0
 
+# Tính OT (nếu > 8 giờ)
+def calculate_ot(total_hours):
+    """Tính giờ OT nếu tổng giờ > 8"""
+    if total_hours > 8:
+        return round(total_hours - 8, 2)
+    return 0
+
+# Hàm sửa header cho sheet cũ (chạy một lần)
+def fix_sheet_headers():
+    """Sửa header cho tất cả các sheet cũ"""
+    try:
+        spreadsheet = gc.open_by_key(ATTENDANCE_SHEET_ID)
+        worksheets = spreadsheet.worksheets()
+        expected_header = ['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'OT', 'Ghi chú']
+        
+        fixed_sheets = []
+        for ws in worksheets:
+            if ws.title not in ['Sheet1', 'Template']:
+                header = ws.row_values(1)
+                
+                # Nếu header chưa đúng
+                if header != expected_header:
+                    # Nếu sheet cũ chỉ có 6 cột, thêm cột OT
+                    if len(header) == 6 and header == ['Tên NV', 'Ngày', 'Giờ vào', 'Giờ ra', 'Tổng giờ', 'Ghi chú']:
+                        all_data = ws.get_all_values()
+                        if len(all_data) > 1:  # Có dữ liệu
+                            # Chuẩn bị dữ liệu mới với cột OT
+                            new_data = [expected_header]  # Header mới
+                            
+                            for row in all_data[1:]:  # Bỏ qua header cũ
+                                if len(row) >= 6:
+                                    # Lấy dữ liệu cũ
+                                    ten_nv = row[0]
+                                    ngay = row[1]
+                                    gio_vao = row[2]
+                                    gio_ra = row[3]
+                                    tong_gio = row[4]
+                                    ghi_chu = row[5] if len(row) > 5 else ""
+                                    
+                                    # Tính OT
+                                    try:
+                                        total_hours = float(tong_gio) if tong_gio and tong_gio != '' else 0
+                                        ot = round(max(0, total_hours - 8), 2)
+                                    except:
+                                        ot = 0
+                                    
+                                    # Thêm dòng mới với cột OT
+                                    new_data.append([ten_nv, ngay, gio_vao, gio_ra, tong_gio, ot, ghi_chu])
+                            
+                            # Xóa tất cả dữ liệu cũ và ghi dữ liệu mới (nhanh hơn update từng dòng)
+                            ws.clear()
+                            ws.update(f'A1:G{len(new_data)}', new_data)
+                            fixed_sheets.append(ws.title)
+                    else:
+                        # Chỉ cập nhật header
+                        ws.update('A1:G1', [expected_header])
+                        fixed_sheets.append(ws.title)
+        
+        return fixed_sheets
+    except Exception as e:
+        st.error(f"Lỗi sửa header: {e}")
+        return []
+
 # Lấy danh sách các sheet (tháng)
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=300)  # Tăng cache lên 5 phút
 def get_available_months():
     """Lấy danh sách các tháng có sẵn"""
     try:
@@ -278,7 +349,11 @@ with tab1:
             time_in_str = time_in.strftime("%H:%M")
             time_out_str = time_out.strftime("%H:%M")
             estimated_hours = calculate_hours(time_in_str, time_out_str)
+            estimated_ot = calculate_ot(estimated_hours)
+            
             st.info(f"⏱️ **Tổng giờ làm việc:** {estimated_hours} giờ (đã trừ 1h ăn trưa)")
+            if estimated_ot > 0:
+                st.warning(f"⚡ **Giờ OT:** {estimated_ot} giờ")
             
             note = st.text_area("Ghi chú (tùy chọn)")
             
@@ -290,9 +365,10 @@ with tab1:
                         time_in_str,
                         time_out_str,
                         estimated_hours,
+                        estimated_ot,
                         note
                     ):
-                        st.success(f"✅ Đã lưu chấm công cho {selected_employee} - Tổng: {estimated_hours} giờ")
+                        st.success(f"✅ Đã lưu chấm công cho {selected_employee} - Tổng: {estimated_hours} giờ" + (f" (OT: {estimated_ot}h)" if estimated_ot > 0 else ""))
                         st.rerun()
                     else:
                         st.error("❌ Có lỗi khi lưu dữ liệu")
@@ -364,6 +440,8 @@ with tab2:
                     - Nhân viên: {record_info['Tên NV']}
                     - Ngày: {record_info['Ngày']}
                     - Giờ: {record_info['Giờ vào']} - {record_info['Giờ ra']}
+                    - Tổng giờ: {record_info['Tổng giờ']}h
+                    - OT: {record_info.get('OT', 0)}h
                     """)
                     
                     if st.button("🗑️ Xác nhận xóa", type="secondary", use_container_width=True):
@@ -414,7 +492,11 @@ with tab2:
                             new_time_in.strftime("%H:%M"),
                             new_time_out.strftime("%H:%M")
                         )
+                        new_ot_hours = calculate_ot(new_total_hours)
+                        
                         st.info(f"⏱️ Tổng giờ: {new_total_hours} giờ (đã trừ 1h ăn trưa)")
+                        if new_ot_hours > 0:
+                            st.warning(f"⚡ OT: {new_ot_hours} giờ")
                         
                         if st.button("💾 Lưu thay đổi", type="primary", use_container_width=True):
                             with st.spinner("Đang cập nhật..."):
@@ -426,6 +508,7 @@ with tab2:
                                     new_time_in.strftime("%H:%M"),
                                     new_time_out.strftime("%H:%M"),
                                     new_total_hours,
+                                    new_ot_hours,
                                     new_note
                                 ):
                                     st.success("✅ Đã cập nhật bản ghi!")
@@ -620,6 +703,25 @@ with tab6:
             for ws in worksheets:
                 if ws.title not in ['Sheet1', 'Template']:
                     st.write(f"- 📅 **{ws.title}** ({ws.row_count - 1} bản ghi)")
+            
+            st.markdown("---")
+            
+            # Nút sửa header cho tất cả sheet cũ
+            st.subheader("🔧 Công cụ bảo trì")
+            st.info("**Sửa header cho sheet cũ:** Cập nhật header và thêm cột OT cho các sheet không có cột OT")
+            
+            if st.button("🔧 Sửa header tất cả sheet", type="secondary", use_container_width=True):
+                with st.spinner("Đang kiểm tra và sửa header..."):
+                    fixed_sheets = fix_sheet_headers()
+                    if fixed_sheets:
+                        st.success(f"✅ Đã sửa header cho {len(fixed_sheets)} sheet: {', '.join(fixed_sheets)}")
+                        # Clear cache để load lại dữ liệu mới
+                        load_attendance_by_month.clear()
+                        load_attendance.clear()
+                        get_available_months.clear()
+                        st.rerun()
+                    else:
+                        st.info("✅ Tất cả sheet đã có header đúng!")
             
             st.markdown("---")
             st.markdown(f"🔗 [Mở Google Sheets](https://docs.google.com/spreadsheets/d/{ATTENDANCE_SHEET_ID})")
