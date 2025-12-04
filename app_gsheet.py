@@ -202,6 +202,24 @@ def add_employee(emp_name, daily_wage):
         st.error(f"Lỗi thêm nhân viên: {e}")
         return False
 
+# Xóa nhân viên
+def delete_employee(row_index):
+    """Xóa nhân viên khỏi Google Sheets (row_index là STT hiển thị, bắt đầu từ 1)"""
+    try:
+        sheet = gc.open_by_key(EMPLOYEES_SHEET_ID).sheet1
+        
+        # row_index + 1 vì row 1 là header, +1 nữa vì index bắt đầu từ 1
+        actual_row = row_index + 2
+        sheet.delete_rows(actual_row)
+        
+        # Clear cache
+        load_employees.clear()
+        
+        return True
+    except Exception as e:
+        st.error(f"Lỗi xóa nhân viên: {e}")
+        return False
+
 # Tính tổng giờ làm việc (trừ 1 giờ ăn trưa)
 def calculate_hours(time_in, time_out):
     if time_in and time_out:
@@ -445,7 +463,40 @@ with tab3:
         st.subheader("Danh sách nhân viên")
         employees_df = load_employees()
         if len(employees_df) > 0:
-            st.dataframe(employees_df, use_container_width=True, hide_index=True)
+            # Thêm cột STT cho danh sách nhân viên
+            display_employees = employees_df.copy()
+            display_employees.insert(0, 'STT', range(1, len(display_employees) + 1))
+            st.dataframe(display_employees, use_container_width=True, hide_index=True)
+            
+            st.markdown("---")
+            st.subheader("🗑️ Xóa nhân viên")
+            st.warning("⚠️ Lưu ý: Hành động này không thể hoàn tác!")
+            
+            col_del1, col_del2 = st.columns([1, 1])
+            
+            with col_del1:
+                emp_to_delete = st.number_input(
+                    "Nhập STT nhân viên cần xóa", 
+                    min_value=1, 
+                    max_value=len(employees_df),
+                    value=1,
+                    key="delete_emp_stt"
+                )
+            
+            with col_del2:
+                if emp_to_delete:
+                    emp_info = employees_df.iloc[emp_to_delete - 1]
+                    st.info(f"""
+                    **Nhân viên sẽ xóa:**
+                    - Tên: {emp_info['Tên NV']}
+                    - Tiền công: {emp_info['Tiền công/ngày']:,} VNĐ/ngày
+                    """)
+            
+            if st.button("🗑️ Xác nhận xóa nhân viên", type="secondary", use_container_width=True):
+                with st.spinner("Đang xóa nhân viên..."):
+                    if delete_employee(emp_to_delete - 1):
+                        st.success(f"✅ Đã xóa nhân viên: {emp_info['Tên NV']}")
+                        st.rerun()
         else:
             st.info("Chưa có nhân viên nào")
 
