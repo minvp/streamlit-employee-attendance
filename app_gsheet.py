@@ -625,13 +625,20 @@ with tab4:
             display_df['Ngày'] = display_df['Ngày'].dt.strftime('%Y-%m-%d')
             st.dataframe(display_df, use_container_width=True, hide_index=True)
             
-            st.subheader("Tổng hợp giờ làm theo nhân viên")
-            summary = filtered_df.groupby('Tên NV')['Tổng giờ'].agg(['sum', 'count']).reset_index()
-            summary.columns = ['Tên nhân viên', 'Tổng giờ làm', 'Số bản ghi']
-            summary['Tổng giờ làm'] = summary['Tổng giờ làm'].round(2)
-            # Tính số ngày công dựa trên giờ làm (8 giờ = 1 ngày công)
-            summary['Số ngày công'] = (summary['Tổng giờ làm'] / 8).round(2)
-            st.dataframe(summary, use_container_width=True, hide_index=True)
+            # Bảng lương
+            st.subheader("Bảng lương")
+            # Lấy thông tin tiền công/ngày từ employees_df
+            employees_df = load_employees()
+            # Tổng hợp số ngày công theo nhân viên (8 giờ = 1 ngày công)
+            salary_summary = filtered_df.groupby('Tên NV')['Tổng giờ'].sum().reset_index()
+            salary_summary['Số ngày công'] = (salary_summary['Tổng giờ'] / 8).round(2)
+            # Gán tiền công/ngày từ employees_df
+            salary_summary = salary_summary.merge(employees_df[['Tên NV', 'Tiền công/ngày']], on='Tên NV', how='left')
+            salary_summary['Tiền công/ngày (VNĐ)'] = salary_summary['Tiền công/ngày']
+            salary_summary['Tổng lương (VNĐ)'] = (salary_summary['Số ngày công'] * salary_summary['Tiền công/ngày (VNĐ)']).round(0).astype('Int64')
+            salary_summary = salary_summary[['Tên NV', 'Số ngày công', 'Tiền công/ngày (VNĐ)', 'Tổng lương (VNĐ)']]
+            salary_summary.columns = ['Tên nhân viên', 'Số ngày công', 'Tiền công/ngày (VNĐ)', 'Tổng lương (VNĐ)']
+            st.dataframe(salary_summary, use_container_width=True, hide_index=True)
         else:
             st.info("Không có dữ liệu phù hợp với bộ lọc")
     else:
