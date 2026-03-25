@@ -478,13 +478,21 @@ with tab4:
             display_df['Ngày'] = display_df['Ngày'].dt.strftime('%Y-%m-%d')
             st.dataframe(display_df, use_container_width=True, hide_index=True)
             
-            # Tổng hợp theo nhân viên
-            st.subheader("Tổng hợp giờ làm theo nhân viên")
-            summary = filtered_df.groupby('Tên NV')['Tổng giờ'].agg(['sum', 'count']).reset_index()
-            summary.columns = ['Tên nhân viên', 'Tổng giờ làm', 'Số ngày công']
-            summary['Tổng giờ làm'] = summary['Tổng giờ làm'].round(2)
-            st.dataframe(summary, use_container_width=True, hide_index=True)
-            
+            # Bảng lương
+            st.subheader("Bảng lương")
+            salary_per_day = st.number_input(
+                "Nhập số tiền công/ngày (VNĐ)",
+                min_value=0,
+                value=300000,
+                step=10000,
+                format="%d"
+            )
+            salary_summary = filtered_df.groupby('Tên NV').agg({'Ngày': 'count'}).reset_index()
+            salary_summary.columns = ['Tên nhân viên', 'Số ngày công']
+            salary_summary['Tiền công/ngày (VNĐ)'] = salary_per_day
+            salary_summary['Tổng lương (VNĐ)'] = salary_summary['Số ngày công'] * salary_per_day
+            st.dataframe(salary_summary, use_container_width=True, hide_index=True)
+
             # Xuất báo cáo
             col1, col2 = st.columns(2)
             with col1:
@@ -492,11 +500,11 @@ with tab4:
                     filename = f"bao_cao_cham_cong_{selected_month if selected_month != 'Tất cả' else 'tat_ca'}.xlsx"
                     display_df.to_excel(filename, index=False)
                     st.success(f"✅ Đã xuất file {filename}")
-            
+
             with col2:
-                if st.button("📥 Xuất tổng hợp (Excel)"):
-                    filename = f"tong_hop_cham_cong_{selected_month if selected_month != 'Tất cả' else 'tat_ca'}.xlsx"
-                    summary.to_excel(filename, index=False)
+                if st.button("📥 Xuất bảng lương (Excel)"):
+                    filename = f"bang_luong_{selected_month if selected_month != 'Tất cả' else 'tat_ca'}.xlsx"
+                    salary_summary.to_excel(filename, index=False)
                     st.success(f"✅ Đã xuất file {filename}")
         else:
             st.info("Không có dữ liệu phù hợp với bộ lọc")
